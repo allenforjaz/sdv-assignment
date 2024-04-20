@@ -3,16 +3,36 @@ const recorded_income_colour = "red"
 
 //legend
 var legend = d3.select("#legend")
+var keys = ["Average House Price", "Average Recorded Income"]
+var legend_color = d3.scaleOrdinal().domain(keys).range([house_price_colour,recorded_income_colour])
+// Add one dot in the legend for each name.
+var size = 20
+legend.selectAll("mydots")
+  .data(keys)
+  .enter()
+  .append("rect")
+    .attr("x", 100)
+    .attr("y", function(d,i){ return 100 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+    .attr("width", size)
+    .attr("height", size)
+    .style("fill", function(d){ return legend_color(d)})
 
-legend.append("circle").attr("cx",200).attr("cy",130).attr("r", 6).style("fill", house_price_colour)
-legend.append("circle").attr("cx",200).attr("cy",160).attr("r", 6).style("fill", recorded_income_colour)
-legend.append("text").attr("x", 220).attr("y", 130).text("variable A").style("font-size", "15px").attr("alignment-baseline","middle")
-legend.append("text").attr("x", 220).attr("y", 160).text("variable B").style("font-size", "15px").attr("alignment-baseline","middle")
+// Add one dot in the legend for each name.
+legend.selectAll("mylabels")
+  .data(keys)
+  .enter()
+  .append("text")
+    .attr("x", 100 + size*1.2)
+    .attr("y", function(d,i){ return 100 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+    .style("fill", function(d){ return legend_color(d)})
+    .text(function(d){ return d})
+    .attr("text-anchor", "left")
+    .style("alignment-baseline", "middle")
 
 // set the dimensions and margins of the graph
 var margin = {top: 10, right: 30, bottom: 30, left: 60},
-    width = 640 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
+    width = 840 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
 
 // append the svg object to the body of the page
 var svg = d3.select("#line-chart")
