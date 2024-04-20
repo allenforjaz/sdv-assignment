@@ -3,7 +3,7 @@ const recorded_income_colour = "red"
 
 //legend
 var legend = d3.select("#legend")
-var keys = ["Average House Price", "Average Recorded Income"]
+var keys = ["Average House Price (£)", "Average Recorded Income (£)"]
 var legend_color = d3.scaleOrdinal().domain(keys).range([house_price_colour,recorded_income_colour])
 // Add one dot in the legend for each name.
 var size = 20
@@ -11,7 +11,7 @@ legend.selectAll("mydots")
   .data(keys)
   .enter()
   .append("rect")
-    .attr("x", 100)
+    .attr("x", 50)
     .attr("y", function(d,i){ return 100 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
     .attr("width", size)
     .attr("height", size)
@@ -22,7 +22,7 @@ legend.selectAll("mylabels")
   .data(keys)
   .enter()
   .append("text")
-    .attr("x", 100 + size*1.2)
+    .attr("x", 50 + size*1.2)
     .attr("y", function(d,i){ return 100 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
     .style("fill", function(d){ return legend_color(d)})
     .text(function(d){ return d})
@@ -66,16 +66,23 @@ d3.csv("https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/h
     var x = d3.scaleTime()
       .domain(d3.extent(data, function(d) { return d.date; }))
       .range([ 0, width ]);
-    xAxis = svg.append("g")
-      .attr("transform", "translate(0," + height + ")")
-      .call(d3.axisBottom(x));
-
     // Add Y axis
     var y = d3.scaleLinear()
-      .domain([0, d3.max(data, function(d) { return +d.house_price; })])
+      .domain([0, d3.max(data, function(d) { return +d.house_price * 1.01; })])
       .range([ height, 0 ]);
+    // Add Y axis grid
+    yAxisGrid = d3.axisLeft(y).tickSize(-width).tickFormat('')
+    svg.append('g')
+      .attr('class', 'y axis-grid')
+      .call(yAxisGrid);
+    
+    xAxis = svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x));
+    
     yAxis = svg.append("g")
-      .call(d3.axisLeft(y));
+    .call(d3.axisLeft(y));
+
 
     // Add a clipPath: everything out of this area won't be drawn.
     var clip = svg.append("defs").append("svg:clipPath")
