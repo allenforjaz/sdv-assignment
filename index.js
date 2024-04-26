@@ -1,5 +1,6 @@
-const house_price_colour = "steelblue"
-const recorded_income_colour = "red"
+const house_price_colour = "#DC3220"
+const recorded_income_colour = "#005AB5"
+const uk_data = "https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/house_prices_recorded_income_data.csv";
 
 //legend
 var legend = d3.select("#legend")
@@ -43,6 +44,13 @@ var svg = d3.select("#line-chart")
     .attr("transform",
           "translate(" + margin.left + "," + margin.top + ")");
 
+var x = d3.scaleTime().range([ 0, width ]);
+var y = d3.scaleLinear().range([ height, 0 ]);
+
+var line_coords = d3.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.price); });
+
 //Function to convert quarterly time-period
 function convert_year_quarter_to_date(quarter,year) {
     quarter_number = Number(quarter.replace("Q", ""))
@@ -51,38 +59,39 @@ function convert_year_quarter_to_date(quarter,year) {
 }
 
 //Read the data
-d3.csv("https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/house_prices_recorded_income_data.csv",
+d3.csv(uk_data,
   // Format data
   function(d){
     converted_date = convert_year_quarter_to_date(d.quarter,d.year);
     converted_house_price = parseFloat(d.avg_house_price.replace(',',''));
     converted_recorded_income = parseFloat(d.avg_recorded_income.replace(',',''));
     const dateParser = d3.timeParse("%Y-%m-%d");
-    return { date : dateParser(converted_date), house_price : converted_house_price, recorded_income : converted_recorded_income };
+    return { date : dateParser(converted_date), avg_house_price : converted_house_price, avg_recorded_income : converted_recorded_income };
   },
   // Now I can use this dataset:
   function(data) {
-    // Add X axis --> it is a date format
-    var x = d3.scaleTime()
-      .domain(d3.extent(data, function(d) { return d.date; }))
-      .range([ 0, width ]);
-    // Add Y axis
-    var y = d3.scaleLinear()
-      .domain([0, d3.max(data, function(d) { return +d.house_price * 1.01; })])
-      .range([ height, 0 ]);
-    // Add Y axis grid
+    var prices = data.columns.slice(2,4).map(function(column) {
+      return {
+        column: column,
+        values: data.map(function(d) {
+          return { date: d.date, price: d[column]};
+        })
+      }
+    })
+    var z = d3.scaleOrdinal().domain(prices).range([house_price_colour,recorded_income_colour])
+
+    x.domain(d3.extent(data, function(d) { return d.date; }));
+    xAxis = svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x));
+    y.domain([0, d3.max(prices, function(d) { return d3.max(d.values, function(e) { return e.price *1.025; }); })]);
+    yAxis = svg.append("g")
+    .call(d3.axisLeft(y));
     yAxisGrid = d3.axisLeft(y).tickSize(-width).tickFormat('')
     svg.append('g')
       .attr('class', 'y axis-grid')
       .call(yAxisGrid);
-    
-    xAxis = svg.append("g")
-    .attr("transform", "translate(0," + height + ")")
-    .call(d3.axisBottom(x));
-    
-    yAxis = svg.append("g")
-    .call(d3.axisLeft(y));
-
+    z.domain(prices.map(function (d) {return d.column;}));
 
     // Add a clipPath: everything out of this area won't be drawn.
     var clip = svg.append("defs").append("svg:clipPath")
@@ -97,33 +106,18 @@ d3.csv("https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/h
     var brush = d3.brushX()                   // Add the brush feature using the d3.brush function
     .extent( [ [0,0], [width,height] ] )  // initialise the brush area: start at 0,0 and finishes at width,height: it means I select the whole graph area
     .on("end", updateChart)               // Each time the brush selection changes, trigger the 'updateChart' function
-
-    // Create the line variable: where both the line and the brush take place
-    var line = svg.append('g')
-      .attr("clip-path", "url(#clip)")
     
-    // Add the line
-    line.append("path")
-      .datum(data)
-      .attr("class","line_houseprice")
-      .attr("fill", "none")
-      .attr("stroke", house_price_colour)
-      .attr("stroke-width", 1.5)
-      .attr("d", d3.line()
-        .x(function(d) { return x(d.date) })
-        .y(function(d) { return y(d.house_price) })
-        )
+    var line = svg.append("g").attr("clip-path", "url(#clip)")
 
-    line.append("path")
-      .datum(data)
-      .attr("class","line_recordedincome")
-      .attr("fill", "none")         //ATTR CAN BE PUT INTO CSS
-      .attr("stroke", recorded_income_colour)            
-      .attr("stroke-width", 1.5)
-      .attr("d", d3.line()
-        .x(function(d) { return x(d.date) })
-        .y(function(d) { return y(d.recorded_income) })
-        )   
+    for(let i =0 ; i < prices.length; i++) {
+      line
+        .append("path").datum(prices[i])
+        .attr("class","price")  
+        .attr("fill", "none")
+        .attr("stroke-width",3)
+        .attr("d", function(d) { return line_coords(d.values); })
+        .style("stroke", function(d) { return z(d.column); });
+    }
 
     // Add the brushing
     line
@@ -153,21 +147,10 @@ d3.csv("https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/h
       // Update axis and line position
       xAxis.transition().duration(1000).call(d3.axisBottom(x))
       line
-          .select('.line_houseprice')
+          .selectAll('.price')
           .transition()
           .duration(1000)
-          .attr("d", d3.line()
-            .x(function(d) { return x(d.date) })
-            .y(function(d) { return y(d.house_price) })
-          )
-      line  
-          .select('.line_recordedincome')
-          .transition()
-          .duration(1000)
-          .attr("d", d3.line()
-            .x(function(d) { return x(d.date) })
-            .y(function(d) { return y(d.recorded_income) })
-          )
+          .attr("d", function(d) { return line_coords(d.values); })
     }
 
     // If user double click, reinitialize the chart
@@ -175,18 +158,8 @@ d3.csv("https://raw.githubusercontent.com/allenforjaz/sdv-assignment/main/data/h
       x.domain(d3.extent(data, function(d) { return d.date; }))
       xAxis.transition().call(d3.axisBottom(x))
       line
-        .select('.line_houseprice')
+        .selectAll('.price')
         .transition()
-        .attr("d", d3.line()
-          .x(function(d) { return x(d.date) })
-          .y(function(d) { return y(d.house_price) })
-      )
-      line
-        .select('.line_recordedincome')
-        .transition()
-        .attr("d", d3.line()
-          .x(function(d) { return x(d.date) })
-          .y(function(d) { return y(d.recorded_income) })
-      )
+        .attr("d", function(d) { return line_coords(d.values); })
     });
 })
